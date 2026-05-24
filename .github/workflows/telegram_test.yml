@@ -1,64 +1,30 @@
-import requests
-import os
-import feedparser
-from bs4 import BeautifulSoup
+name: Reddit Daily Report
 
-RSS_URL = "https://www.reddit.com/r/projectmanagement/.rss"
+on:
+  workflow_dispatch:
 
-feed = feedparser.parse(RSS_URL)
+  schedule:
+    - cron: '0 6 * * *'
 
-posts = []
+jobs:
+  reddit-report:
+    runs-on: ubuntu-latest
 
-for entry in feed.entries[:5]:
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
 
-    title = entry.title
-    link = entry.link
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
 
-    summary = ""
+      - name: Install packages
+        run: |
+          pip install feedparser requests beautifulsoup4
 
-    if hasattr(entry, "summary"):
-
-        soup = BeautifulSoup(
-            entry.summary,
-            "html.parser"
-        )
-
-        summary = soup.get_text(
-            " ",
-            strip=True
-        )
-
-        summary = summary[:350]
-
-    post_text = (
-        f"📌 {title}\n\n"
-        f"📝 {summary}\n\n"
-        f"🔗 {link}"
-    )
-
-    posts.append(post_text)
-
-message = "📊 Project Management Daily Report\n"
-
-for post in posts:
-
-    new_message = (
-        message
-        + "\n\n━━━━━━━━━━━━━━\n\n"
-        + post
-    )
-
-    if len(new_message) < 3800:
-        message = new_message
-
-response = requests.post(
-    f"https://api.telegram.org/bot{os.environ['TELEGRAM_BOT_TOKEN']}/sendMessage",
-    data={
-        "chat_id": os.environ["TELEGRAM_CHAT_ID"],
-        "text": message
-    },
-    timeout=30
-)
-
-print("Telegram Status:", response.status_code)
-print(response.text)
+      - name: Run report
+        run: python reddit_report.py
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
