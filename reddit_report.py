@@ -1,5 +1,5 @@
-import requests
 import os
+import requests
 import feedparser
 from bs4 import BeautifulSoup
 
@@ -18,31 +18,44 @@ for entry in feed.entries[:5]:
 
     if hasattr(entry, "summary"):
 
-    soup = BeautifulSoup(
-        entry.summary,
-        "html.parser"
-    )
+        soup = BeautifulSoup(
+            entry.summary,
+            "html.parser"
+        )
 
-    summary = soup.get_text(
-        " ",
-        strip=True
-    )
+        summary = soup.get_text(
+            separator=" ",
+            strip=True
+        )
 
-    summary = summary[:350]
+        summary = summary.replace("SC_OFF", "")
+        summary = summary.replace("SC_ON", "")
 
-    posts.append(
-        f"📌 {title}\n\n"
-        f"📝 {summary}\n\n"
-        f"🔗 {link}"
-    )
+        if len(summary) > 400:
+            summary = summary[:400] + "..."
 
-message = "📊 Project Management Daily Report\n\n"
+    post = f"""
+📌 {title}
+
+📝 {summary}
+
+🔗 {link}
+"""
+
+    posts.append(post)
+
+message = "📊 Project Management Daily Report\n"
 
 for post in posts:
-    temp = message + "\n\n━━━━━━━━━━━━━━\n\n" + post
 
-    if len(temp) < 3800:
-        message = temp
+    candidate = (
+        message
+        + "\n━━━━━━━━━━━━━━\n"
+        + post
+    )
+
+    if len(candidate) < 3800:
+        message = candidate
 
 response = requests.post(
     f"https://api.telegram.org/bot{os.environ['TELEGRAM_BOT_TOKEN']}/sendMessage",
