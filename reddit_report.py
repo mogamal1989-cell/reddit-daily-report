@@ -1,6 +1,7 @@
 import requests
 import os
 import feedparser
+from bs4 import BeautifulSoup
 
 RSS_URL = "https://www.reddit.com/r/projectmanagement/.rss"
 
@@ -16,17 +17,18 @@ for entry in feed.entries[:5]:
     summary = ""
 
     if hasattr(entry, "summary"):
-        summary = entry.summary
 
-        # تنظيف HTML بسيط
-        summary = (
-            summary.replace("<p>", "")
-            .replace("</p>", "")
-            .replace("<br />", " ")
-            .replace("&amp;", "&")
-        )
+    soup = BeautifulSoup(
+        entry.summary,
+        "html.parser"
+    )
 
-        summary = summary[:300]
+    summary = soup.get_text(
+        " ",
+        strip=True
+    )
+
+    summary = summary[:350]
 
     posts.append(
         f"📌 {title}\n\n"
