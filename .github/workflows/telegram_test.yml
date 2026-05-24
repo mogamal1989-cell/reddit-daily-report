@@ -1,15 +1,30 @@
-name: Telegram Test
+name: Reddit Daily Report
 
 on:
   workflow_dispatch:
 
+  schedule:
+    - cron: '0 6 * * *'
+
 jobs:
-  send-message:
+  reddit-report:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Send Telegram Message
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install packages
         run: |
-          curl -s -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage" \
-          -d chat_id="${{ secrets.TELEGRAM_CHAT_ID }}" \
-          -d text="✅ GitHub is connected successfully!"
+          pip install feedparser requests
+
+      - name: Run report
+        run: python reddit_report.py
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
