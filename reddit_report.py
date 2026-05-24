@@ -1,48 +1,55 @@
 import requests
 import os
-from datetime import datetime, timezone, timedelta
+import feedparser
 
-URL = "https://www.reddit.com/r/projectmanagement/top.json?t=day&limit=10"
+RSS_URL = "https://www.reddit.com/r/projectmanagement/.rss"
 
-headers = {
-    "User-Agent": "Mozilla/5.0"
-}
-
-response = requests.get(URL, headers=headers)
-data = response.json()
+feed = feedparser.parse(RSS_URL)
 
 posts = []
 
-for post in data["data"]["children"]:
+for entry in feed.entries[:5]:
 
-    p = post["data"]
+    title = entry.title
+    link = entry.link
 
-    title = p["title"]
-    score = p["score"]
-    comments = p["num_comments"]
-    text = p.get("selftext", "")
+    summary = ""
 
-    summary = text[:250].replace("\n", " ")
+    if hasattr(entry, "summary"):
+        summary = entry.summary
 
-    if len(summary) > 250:
-        summary += "..."
+        # تنظيف HTML بسيط
+        summary = (
+            summary.replace("<p>", "")
+            .replace("</p>", "")
+            .replace("<br />", " ")
+            .replace("&amp;", "&")
+        )
 
-    link = "https://reddit.com" + p["permalink"]
+        summary = summary[:300]
 
     posts.append(
         f"📌 {title}\n\n"
-        f"👍 {score} | 💬 {comments}\n\n"
         f"📝 {summary}\n\n"
         f"🔗 {link}"
     )
 
 message = "📊 Project Management Daily Report\n\n"
-message += "\n\n━━━━━━━━━━━━━━\n\n".join(posts[:5])
 
-requests.post(
+for post in posts:
+    temp = message + "\n\n━━━━━━━━━━━━━━\n\n" + post
+
+    if len(temp) < 3800:
+        message = temp
+
+response = requests.post(
     f"https://api.telegram.org/bot{os.environ['TELEGRAM_BOT_TOKEN']}/sendMessage",
     data={
         "chat_id": os.environ["TELEGRAM_CHAT_ID"],
-        "text": message[:4000]
-    }
+        "text": message
+    },
+    timeout=30
 )
+
+print("Telegram Status:", response.status_code)
+print(response.text)
