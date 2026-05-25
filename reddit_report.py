@@ -1,18 +1,18 @@
 import os
-import feedparser
 import requests
 from datetime import datetime
 
 BOT_TOKEN = os.environ["TELEGRAM_BOT_TOKEN"]
 CHAT_ID = os.environ["TELEGRAM_CHAT_ID"]
 
-RSS_URL = "https://www.reddit.com/r/projectmanagement/new/.rss"
-
 headers = {
     "User-Agent": "Mozilla/5.0"
 }
 
-feed = feedparser.parse(RSS_URL)
+url = "https://www.reddit.com/r/projectmanagement/new.json?limit=10"
+
+response = requests.get(url, headers=headers)
+data = response.json()
 
 today = datetime.now().strftime("%d/%m/%Y")
 
@@ -29,27 +29,29 @@ message = f"""
 
 """
 
-for entry in feed.entries[:5]:
+for post in data["data"]["children"][:5]:
 
-    title = entry.title
-    link = entry.link
+    post_data = post["data"]
 
-    summary = ""
+    title = post_data["title"]
+    score = post_data["score"]
+    comments = post_data["num_comments"]
+    content = post_data.get("selftext", "")
+    link = "https://www.reddit.com" + post_data["permalink"]
 
-    if hasattr(entry, "summary"):
-        summary = entry.summary
+    if len(content) > 400:
+        content = content[:400] + "..."
 
-    summary = summary.replace("<p>", "").replace("</p>", "")
-    summary = summary.replace("&amp;", "&")
-    summary = summary.replace("\n", " ")
-
-    if len(summary) > 400:
-        summary = summary[:400] + "..."
+    if content.strip() == "":
+        content = "No text content available."
 
     message += f"""
 📌 {title}
 
-📝 {summary}
+👍 Score: {score}
+💬 Comments: {comments}
+
+📝 {content}
 
 🔗 {link}
 
@@ -57,10 +59,10 @@ for entry in feed.entries[:5]:
 
 """
 
-url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
+telegram_url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
 
 requests.post(
-    url,
+    telegram_url,
     data={
         "chat_id": CHAT_ID,
         "text": message
