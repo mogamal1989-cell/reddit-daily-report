@@ -1,18 +1,19 @@
 import os
+import feedparser
 import requests
+import re
 from datetime import datetime
 
 BOT_TOKEN = os.environ["TELEGRAM_BOT_TOKEN"]
 CHAT_ID = os.environ["TELEGRAM_CHAT_ID"]
 
+RSS_URL = "https://www.reddit.com/r/projectmanagement/new/.rss"
+
 headers = {
     "User-Agent": "Mozilla/5.0"
 }
 
-url = "https://www.reddit.com/r/projectmanagement/new.json?limit=10"
-
-response = requests.get(url, headers=headers)
-data = response.json()
+feed = feedparser.parse(RSS_URL)
 
 today = datetime.now().strftime("%d/%m/%Y")
 
@@ -29,21 +30,45 @@ message = f"""
 
 """
 
-for post in data["data"]["children"][:5]:
+for entry in feed.entries[:5]:
 
-    post_data = post["data"]
+    title = entry.title
+    link = entry.link
 
-    title = post_data["title"]
-    score = post_data["score"]
-    comments = post_data["num_comments"]
-    content = post_data.get("selftext", "")
-    link = "https://www.reddit.com" + post_data["permalink"]
+    score = "N/A"
+    comments = "N/A"
 
-    if len(content) > 400:
-        content = content[:400] + "..."
+    try:
+        json_url = link.rstrip("/") + ".json"
 
-    if content.strip() == "":
-        content = "No text content available."
+        response = requests.get(
+            json_url,
+            headers=headers,
+            timeout=10
+        )
+
+        if response.status_code == 200:
+            data = response.json()
+
+            post_data = data[0]["data"]["children"][0]["data"]
+
+            score = post_data.get("score", "N/A")
+            comments = post_data.get("num_comments", "N/A")
+
+    except Exception:
+        pass
+
+    summary = ""
+
+    if hasattr(entry, "summary"):
+        summary = entry.summary
+
+    summary = re.sub(r"<.*?>", "", summary)
+    summary = summary.replace("&amp;", "&")
+    summary = summary.replace("\n", " ")
+
+    if len(summary) > 400:
+        summary = summary[:400] + "..."
 
     message += f"""
 📌 {title}
@@ -51,7 +76,7 @@ for post in data["data"]["children"][:5]:
 👍 Score: {score}
 💬 Comments: {comments}
 
-📝 {content}
+📝 {summary}
 
 🔗 {link}
 
@@ -59,10 +84,10 @@ for post in data["data"]["children"][:5]:
 
 """
 
-telegram_url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
+url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
 
 requests.post(
-    telegram_url,
+    url,
     data={
         "chat_id": CHAT_ID,
         "text": message
