@@ -1,5 +1,4 @@
-name: Reddit Daily Report
-
+name: Reddit Daily Report Scheduled
 on:
   workflow_dispatch:
 
