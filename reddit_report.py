@@ -1,13 +1,33 @@
 import os
-import requests
 import feedparser
-from bs4 import BeautifulSoup
+import requests
+from datetime import datetime
 
-RSS_URL = "https://www.reddit.com/r/projectmanagement/.rss"
+BOT_TOKEN = os.environ["TELEGRAM_BOT_TOKEN"]
+CHAT_ID = os.environ["TELEGRAM_CHAT_ID"]
+
+RSS_URL = "https://www.reddit.com/r/projectmanagement/new/.rss"
+
+headers = {
+    "User-Agent": "Mozilla/5.0"
+}
 
 feed = feedparser.parse(RSS_URL)
 
-posts = []
+today = datetime.now().strftime("%d/%m/%Y")
+
+message = f"""
+☀️ صباح الخير يا محمد
+
+📚 تقرير Project Management اليومي
+
+📅 {today}
+
+تم مراجعة أحدث المواضيع المنشورة على Reddit واختيار أبرز النقاشات الجديدة التي قد تهمك اليوم.
+
+━━━━━━━━━━━━━━
+
+"""
 
 for entry in feed.entries[:5]:
 
@@ -17,54 +37,34 @@ for entry in feed.entries[:5]:
     summary = ""
 
     if hasattr(entry, "summary"):
+        summary = entry.summary
 
-        soup = BeautifulSoup(
-            entry.summary,
-            "html.parser"
-        )
+    summary = summary.replace("<p>", "").replace("</p>", "")
+    summary = summary.replace("&amp;", "&")
+    summary = summary.replace("\n", " ")
 
-        summary = soup.get_text(
-            separator=" ",
-            strip=True
-        )
+    if len(summary) > 400:
+        summary = summary[:400] + "..."
 
-        summary = summary.replace("SC_OFF", "")
-        summary = summary.replace("SC_ON", "")
-
-        if len(summary) > 400:
-            summary = summary[:400] + "..."
-
-    post = f"""
+    message += f"""
 📌 {title}
 
 📝 {summary}
 
 🔗 {link}
+
+━━━━━━━━━━━━━━
+
 """
 
-    posts.append(post)
+url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
 
-message = "📊 Project Management Daily Report\n"
-
-for post in posts:
-
-    candidate = (
-        message
-        + "\n━━━━━━━━━━━━━━\n"
-        + post
-    )
-
-    if len(candidate) < 3800:
-        message = candidate
-
-response = requests.post(
-    f"https://api.telegram.org/bot{os.environ['TELEGRAM_BOT_TOKEN']}/sendMessage",
+requests.post(
+    url,
     data={
-        "chat_id": os.environ["TELEGRAM_CHAT_ID"],
+        "chat_id": CHAT_ID,
         "text": message
-    },
-    timeout=30
+    }
 )
 
-print("Telegram Status:", response.status_code)
-print(response.text)
+print("Report sent successfully")
